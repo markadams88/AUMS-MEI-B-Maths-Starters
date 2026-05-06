@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A-Level Maths Starters</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #12071a; }
+  #root { height: 100vh; }
+  .loading-screen { height:100vh; display:flex; align-items:center; justify-content:center; color:#F93E26; font-size:1.5rem; font-family:sans-serif; background:#12071a; }
+</style>
+</head>
+<body>
+<div id="root"><div class="loading-screen">Loading...</div></div>
+
+<script>
+// localStorage wrapper mimicking the storage API the app expects
+window.storage = {
+  get: async (key) => {
+    try { const v = localStorage.getItem(key); return v !== null ? { value: v } : null; } catch (e) { return null; }
+  },
+  set: async (key, value) => {
+    try { localStorage.setItem(key, value); return { value }; } catch (e) { return null; }
+  }
+};
+</script>
+
+<script>
+// Wait until React + KaTeX are loaded, then run the compiled app
+function startApp() {
+  if (!window.React || !window.ReactDOM) {
+    setTimeout(startApp, 50);
+    return;
+  }
+  const { useState, useEffect, useCallback, useMemo, useRef } = React;
+  
+/* ═══════════ MATH HELPERS ═══════════ */
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randChoice = arr => arr[Math.floor(Math.random() * arr.length)];
+const randSign = () => Math.random() < 0.5 ? 1 : -1;
+const randNonZero = (min, max) => {
+  let n = 0;
+  while (n === 0) n = randInt(min, max);
+  return n;
+};
+const gcd = (a, b) => b === 0 ? Math.abs(a) : gcd(b, a % b);
+const simplifyFrac = (n, d) => {
+  if (d < 0) {
+    n = -n;
+    d = -d;
+  }
+  const g = gcd(n, d);
+  return [n / g, d / g];
+};
+const fracToLatex = (n, d) => {
+  const [sn, sd] = simplifyFrac(n, d);
+  if (sd === 1) return `${sn}`;
+  return `\\frac{${sn}}{${sd}}`;
+};
+const signedTerm = (coeff, v = "", first = false) => {
+  if (coeff === 0) return "";
+  const abs = Math.abs(coeff);
+  const sign = coeff < 0 ? "-" : first ? "" : "+";
+  const sp = first ? "" : " ";
+  if (v === "") return `${sp}${sign} ${abs}`;
+  if (abs === 1) return `${sp}${sign} ${v}`;
+  return `${sp}${sign} ${abs}${v}`;
+};
+const DIFF_LABELS = {
+  1: "AS",
+  2: "A2",
+  3: "Exam",
+  4: "Challenge"
+};
+const DIFF_COLORS = {
+  1: "#34d399",
+  2: "#60a5fa",
+  3: "#f59e0b",
+  4: "#ef4444"
+};
+
+/* ═══════════ QUESTION BANK ═══════════ */
+const INITIAL_QUESTIONS = [{
+  id: "surds-01",
+  title: "Simplify Surds",
+  topic: "Algebra",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2019",
+  difficulty: 1,
+  qNum: "1",
+  generatorCode: `const outer = randInt(2, 6); const inner = randChoice([2, 3, 5, 7]); const n = outer * outer * inner;
+return { parts: [{ label: '', text: 'Simplify $$\\\\sqrt{' + n + '}$$', marks: 2, answer: '$$' + outer + '\\\\sqrt{' + inner + '}$$' }] };`
+}, {
+  id: "quad-complete-01",
+  title: "Completing the Square",
+  topic: "Algebra",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2018",
+  difficulty: 1,
+  qNum: "2",
+  generatorCode: `const p = randInt(1, 8) * randSign(); const q = randInt(1, 15) * randSign(); const b = 2 * p; const c = p * p + q;
+let expr = 'x^{2}'; if (b > 0) expr += ' + ' + b + 'x'; else expr += ' - ' + Math.abs(b) + 'x';
+if (c > 0) expr += ' + ' + c; else if (c < 0) expr += ' - ' + Math.abs(c);
+let ans = '(x'; if (p > 0) ans += ' + ' + p; else ans += ' - ' + Math.abs(p); ans += ')^{2}';
+if (q > 0) ans += ' + ' + q; else if (q < 0) ans += ' - ' + Math.abs(q);
+return { parts: [{ label: '', text: 'Write $$' + expr + '$$ in the form $$(x + a)^2 + b$$', marks: 3, answer: '$$' + ans + '$$' }] };`
+}, {
+  id: "quad-solve-01",
+  title: "Solve a Quadratic",
+  topic: "Algebra",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2020",
+  difficulty: 1,
+  qNum: "3",
+  generatorCode: `const r1 = randInt(-8, 8); const r2 = randInt(-8, 8); const b = -(r1 + r2); const c = r1 * r2;
+let expr = 'x^{2}'; if (b > 0) expr += ' + ' + b + 'x'; else if (b < 0) expr += ' - ' + Math.abs(b) + 'x';
+if (c > 0) expr += ' + ' + c; else if (c < 0) expr += ' - ' + Math.abs(c);
+const sorted = [r1, r2].sort((a,b) => a - b);
+return { parts: [
+  { label: '(a)', text: 'Factorise $$' + expr + '$$', marks: 2, answer: '$$(x ' + (sorted[0] >= 0 ? '- ' + sorted[0] : '+ ' + Math.abs(sorted[0])) + ')(x ' + (sorted[1] >= 0 ? '- ' + sorted[1] : '+ ' + Math.abs(sorted[1])) + ')$$' },
+  { label: '(b)', text: 'Hence solve $$' + expr + ' = 0$$', marks: 1, answer: '$$x = ' + sorted[0] + ' \\\\quad \\\\text{or} \\\\quad x = ' + sorted[1] + '$$' }
+]};`
+}, {
+  id: "simult-01",
+  title: "Simultaneous Equations",
+  topic: "Algebra",
+  level: "AS",
+  year: "Year 1",
+  source: "OCR",
+  paper: "Paper 1",
+  yearRef: "2019",
+  difficulty: 1,
+  qNum: "4",
+  generatorCode: `const x = randInt(-5, 5); const y = randInt(-5, 5);
+let a1 = randNonZero(-4, 4); let b1 = randNonZero(-4, 4); let a2 = randNonZero(-4, 4); let b2 = randNonZero(-4, 4);
+let tries = 0; while (a1 * b2 === a2 * b1 && tries < 20) { a2 = randNonZero(-4, 4); b2 = randNonZero(-4, 4); tries++; }
+const c1 = a1 * x + b1 * y; const c2 = a2 * x + b2 * y;
+function ts(c, v, f) { if (c === 0) return ''; const abs = Math.abs(c); const s = c < 0 ? '-' : (f ? '' : '+'); const sp = f ? '' : ' '; if (abs === 1) return sp + s + ' ' + v; return sp + s + ' ' + abs + v; }
+return { parts: [{ label: '', text: 'Solve:\\n$$' + ts(a1,'x',true) + ts(b1,'y',false) + ' = ' + c1 + '$$\\n$$' + ts(a2,'x',true) + ts(b2,'y',false) + ' = ' + c2 + '$$', marks: 3, answer: '$$x = ' + x + ', \\\\quad y = ' + y + '$$' }] };`
+}, {
+  id: "binomial-01",
+  title: "Binomial Expansion",
+  topic: "Algebra",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 2",
+  yearRef: "2018",
+  difficulty: 2,
+  qNum: "8",
+  generatorCode: `const a = randInt(1, 3); const b = randInt(1, 4) * randSign(); const n = randInt(3, 5);
+function nCr(n, r) { if (r === 0 || r === n) return 1; let res = 1; for (let i = 0; i < r; i++) { res = res * (n - i) / (i + 1); } return Math.round(res); }
+let bStr = b > 0 ? ' + ' + (b === 1 ? '' : b) + 'x' : ' - ' + (Math.abs(b) === 1 ? '' : Math.abs(b)) + 'x';
+const t0 = Math.pow(a, n); const t1 = nCr(n, 1) * Math.pow(a, n-1) * b;
+const t2 = nCr(n, 2) * Math.pow(a, n-2) * b * b; const t3 = n >= 3 ? nCr(n, 3) * Math.pow(a, n-3) * b * b * b : 0;
+let ans = '' + t0; ans += (t1 >= 0 ? ' + ' + t1 : ' - ' + Math.abs(t1)) + 'x';
+ans += (t2 >= 0 ? ' + ' + t2 : ' - ' + Math.abs(t2)) + 'x^{2}';
+if (n >= 3) ans += (t3 >= 0 ? ' + ' + t3 : ' - ' + Math.abs(t3)) + 'x^{3}';
+ans += ' + \\\\ldots';
+return { parts: [{ label: '', text: 'Find the first ' + (n >= 3 ? 'four' : 'three') + ' terms of $$(' + a + bStr + ')^{' + n + '}$$', marks: 4, answer: '$$' + ans + '$$' }] };`
+}, {
+  id: "diff-poly-01",
+  title: "Differentiate a Polynomial",
+  topic: "Differentiation",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2019",
+  difficulty: 1,
+  qNum: "2",
+  generatorCode: `const n1 = randInt(2, 6); const c1 = randInt(2, 9) * randSign(); const n2 = randInt(1, 4); const c2 = randInt(1, 8) * randSign(); const c3 = randInt(1, 10) * randSign();
+const terms = []; terms.push(c1 === 1 ? 'x^{' + n1 + '}' : c1 === -1 ? '-x^{' + n1 + '}' : c1 + 'x^{' + n1 + '}');
+if (n2 === 1) terms.push((c2 > 0 ? ' + ' : ' - ') + Math.abs(c2) + 'x');
+else terms.push((c2 > 0 ? ' + ' : ' - ') + (Math.abs(c2) === 1 ? '' : Math.abs(c2)) + 'x^{' + n2 + '}');
+terms.push((c3 > 0 ? ' + ' : ' - ') + Math.abs(c3));
+const dc1 = c1 * n1; const dn1 = n1 - 1; const dc2 = c2 * n2; const dn2 = n2 - 1;
+const at = []; if (dn1 === 1) at.push(dc1 + 'x'); else at.push((dc1 === 1 ? '' : dc1 === -1 ? '-' : dc1) + 'x^{' + dn1 + '}');
+if (dn2 === 0) at.push((dc2 > 0 ? ' + ' : ' - ') + Math.abs(dc2));
+else if (dn2 === 1) at.push((dc2 > 0 ? ' + ' : ' - ') + Math.abs(dc2) + 'x');
+else at.push((dc2 > 0 ? ' + ' : ' - ') + (Math.abs(dc2) === 1 ? '' : Math.abs(dc2)) + 'x^{' + dn2 + '}');
+return { parts: [{ label: '', text: 'Differentiate $$y = ' + terms.join('') + '$$', marks: 3, answer: '$$\\\\frac{dy}{dx} = ' + at.join('') + '$$' }] };`
+}, {
+  id: "diff-stationary-01",
+  title: "Stationary Points",
+  topic: "Differentiation",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 2",
+  yearRef: "2020",
+  difficulty: 2,
+  qNum: "9",
+  generatorCode: `const r1 = randInt(-3, 3); const r2 = randInt(r1 + 1, r1 + 4); const b = -(r1 + r2); const c = r1 * r2;
+let y = 'x^{3}'; if (b > 0) y += ' + ' + b + 'x^{2}'; else if (b < 0) y += ' - ' + Math.abs(b) + 'x^{2}';
+if (c > 0) y += ' + ' + c + 'x'; else if (c < 0) y += ' - ' + Math.abs(c) + 'x';
+const d = randInt(-5, 5); if (d > 0) y += ' + ' + d; else if (d < 0) y += ' - ' + Math.abs(d);
+return { parts: [
+  { label: '(a)', text: 'Find $$\\\\frac{dy}{dx}$$ given $$y = ' + y + '$$', marks: 3, answer: '$$\\\\frac{dy}{dx} = 3x^{2}' + (2*b > 0 ? ' + ' + 2*b : ' - ' + Math.abs(2*b)) + 'x' + (c > 0 ? ' + ' + c : c < 0 ? ' - ' + Math.abs(c) : '') + '$$' },
+  { label: '(b)', text: 'Find the values of $x$ where $$\\\\frac{dy}{dx} = 0$$', marks: 3, answer: '$$x = ' + r1 + ' \\\\quad \\\\text{or} \\\\quad x = ' + r2 + '$$' }
+]};`
+}, {
+  id: "integrate-01",
+  title: "Integrate a Polynomial",
+  topic: "Integration",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 2",
+  yearRef: "2019",
+  difficulty: 1,
+  qNum: "3",
+  generatorCode: `const n = randInt(2, 5); const c1 = randInt(1, 7) * randSign(); const c2 = randInt(1, 9) * randSign();
+let expr = ''; if (c1 === 1) expr = 'x^{' + n + '}'; else if (c1 === -1) expr = '-x^{' + n + '}'; else expr = c1 + 'x^{' + n + '}';
+if (c2 > 0) expr += ' + ' + (c2 === 1 ? '' : c2) + 'x'; else expr += ' - ' + (Math.abs(c2) === 1 ? '' : Math.abs(c2)) + 'x';
+const nn = n + 1; const [an, ad] = simplifyFrac(c1, nn);
+let a1 = ad === 1 ? ((an === 1 ? '' : an === -1 ? '-' : an) + 'x^{' + nn + '}') : ('\\\\frac{' + an + '}{' + ad + '}x^{' + nn + '}');
+const [bn, bd] = simplifyFrac(c2, 2);
+let a2 = bd === 1 ? ((bn === 1 ? '' : bn === -1 ? '-' : bn) + 'x^{2}') : (bn > 0 ? '\\\\frac{' + bn + '}{' + bd + '}x^{2}' : '-\\\\frac{' + Math.abs(bn) + '}{' + bd + '}x^{2}');
+let ans = a1; if (!a2.startsWith('-')) ans += ' + '; else ans += ' '; ans += a2 + ' + C';
+return { parts: [{ label: '', text: 'Find $$\\\\int ' + expr + ' \\\\, dx$$', marks: 3, answer: '$$' + ans + '$$' }] };`
+}, {
+  id: "trig-exact-01",
+  title: "Exact Trig Values",
+  topic: "Trigonometry",
+  level: "AS",
+  year: "Year 1",
+  source: "Textbook",
+  paper: "Ch.10",
+  yearRef: "",
+  difficulty: 1,
+  qNum: "",
+  generatorCode: `const angles = [
+  { deg: 30, sin: '\\\\frac{1}{2}', cos: '\\\\frac{\\\\sqrt{3}}{2}', tan: '\\\\frac{1}{\\\\sqrt{3}}' },
+  { deg: 45, sin: '\\\\frac{\\\\sqrt{2}}{2}', cos: '\\\\frac{\\\\sqrt{2}}{2}', tan: '1' },
+  { deg: 60, sin: '\\\\frac{\\\\sqrt{3}}{2}', cos: '\\\\frac{1}{2}', tan: '\\\\sqrt{3}' },
+  { deg: 120, sin: '\\\\frac{\\\\sqrt{3}}{2}', cos: '-\\\\frac{1}{2}', tan: '-\\\\sqrt{3}' },
+  { deg: 150, sin: '\\\\frac{1}{2}', cos: '-\\\\frac{\\\\sqrt{3}}{2}', tan: '-\\\\frac{1}{\\\\sqrt{3}}' },
+  { deg: 330, sin: '-\\\\frac{1}{2}', cos: '\\\\frac{\\\\sqrt{3}}{2}', tan: '-\\\\frac{1}{\\\\sqrt{3}}' }
+]; const a = randChoice(angles); const fn = randChoice(['sin', 'cos', 'tan']);
+const val = fn === 'sin' ? a.sin : fn === 'cos' ? a.cos : a.tan;
+return { parts: [{ label: '', text: 'Find the exact value of $$\\\\' + fn + ' ' + a.deg + '^{\\\\circ}$$', marks: 1, answer: '$$' + val + '$$' }] };`
+}, {
+  id: "sequences-01",
+  title: "Arithmetic Sequence nth Term",
+  topic: "Sequences & Series",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 2",
+  yearRef: "2018",
+  difficulty: 1,
+  qNum: "1",
+  generatorCode: `const a = randInt(-5, 12); const d = randNonZero(-6, 8); const n = randInt(8, 25); const ans = a + (n - 1) * d;
+return { parts: [{ label: '', text: 'An arithmetic sequence has first term $a = ' + a + '$ and common difference $d = ' + d + '$. Find the $' + n + '^{\\\\text{th}}$ term.', marks: 2, answer: '$$u_{' + n + '} = ' + ans + '$$' }] };`
+}, {
+  id: "seq-savings-01",
+  title: "Arithmetic & Geometric Savings",
+  topic: "Sequences & Series",
+  level: "AS",
+  year: "Year 1",
+  source: "Edexcel",
+  paper: "Paper 2",
+  yearRef: "2020",
+  difficulty: 3,
+  qNum: "12",
+  generatorCode: `const n1 = randChoice(['Aleela','Sophie','Priya','Fatima','Megan']); const n2 = randChoice(['Baraka','James','Ravi','Omar','Ethan']);
+const a = randChoice([30, 40, 50, 60, 80, 100]); const d = randChoice([10, 15, 20, 25, 30]); const pct = randChoice([5, 8, 10, 12, 15]);
+const n = 24; const sumA = (n / 2) * (2 * a + (n - 1) * d); const r = 1 + pct / 100;
+const sumB = Math.round(a * (Math.pow(r, n) - 1) / (r - 1) * 100) / 100;
+const who = sumB > sumA ? n2 : n1; const diff = Math.round(Math.abs(sumB - sumA) * 100) / 100;
+return {
+  intro: n1 + ' and ' + n2 + ' are saving to buy a car. ' + n1 + ' saves £' + a + ' in the first month. She increases the amount she saves by £' + d + ' each month.',
+  parts: [
+    { label: '(i)', text: 'Calculate how much she saves in two years.', marks: 2, answer: '$$S_{24} = \\\\frac{24}{2}(2 \\\\times ' + a + ' + 23 \\\\times ' + d + ') = \\\\pounds' + sumA + '$$' },
+    { label: '', text: n2 + ' also saves £' + a + ' in the first month. The amount he saves each month is ' + pct + '% more than the amount he saved in the previous month.', marks: 0 },
+    { label: '(ii)', text: 'Explain why the amounts ' + n2 + ' saves each month form a geometric sequence.', marks: 1, answer: 'Each month multiplied by constant ratio $r = ' + r + '$.' },
+    { label: '(iii)', text: 'Determine whether ' + n2 + ' saves more in two years than ' + n1 + '.', marks: 3, answer: '$$S_{24} = \\\\frac{' + a + '(' + r + '^{24} - 1)}{' + r + ' - 1} = \\\\pounds' + sumB.toFixed(2) + '$$\\n' + who + ' saves more by $\\\\pounds' + diff.toFixed(2) + '$' }
+  ]
+};`
+}, {
+  id: "log-01",
+  title: "Laws of Logarithms",
+  topic: "Exponentials & Logarithms",
+  level: "AS",
+  year: "Year 1",
+  source: "OCR",
+  paper: "Paper 1",
+  yearRef: "2019",
+  difficulty: 2,
+  qNum: "7",
+  generatorCode: `const base = randChoice([2, 3, 5, 10]); const a = randInt(2, 4); const b = randInt(1, 3);
+const va = Math.pow(base, a); const vb = Math.pow(base, b);
+return { parts: [
+  { label: '(a)', text: 'Simplify $$\\\\log_{' + base + '} ' + va + ' + \\\\log_{' + base + '} ' + vb + '$$', marks: 2, answer: '$$\\\\log_{' + base + '} ' + (va * vb) + ' = ' + (a + b) + '$$' },
+  { label: '(b)', text: 'Hence solve $$\\\\log_{' + base + '} x = ' + (a + b) + '$$', marks: 1, answer: '$$x = ' + Math.pow(base, a+b) + '$$' }
+]};`
+}, {
+  id: "trig-eq-01",
+  title: "Solve Trig Equation",
+  topic: "Trigonometry",
+  level: "A-Level",
+  year: "Year 2",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2022",
+  difficulty: 3,
+  qNum: "10",
+  generatorCode: `const a = randChoice([30, 45, 60]); const k = randInt(2, 4);
+return { parts: [{ label: '', text: 'Solve $$\\\\sin(' + k + 'x) = \\\\sin ' + a + '^{\\\\circ}$$ for $0 \\\\leq x \\\\leq 360^{\\\\circ}$', marks: 4,
+  answer: '$' + k + 'x = ' + a + '^{\\\\circ}$ or $' + k + 'x = ' + (180 - a) + '^{\\\\circ}$ then add $360^{\\\\circ}$ multiples. Divide by $' + k + '$.' }] };`
+}, {
+  id: "diff-chain-01",
+  title: "Chain Rule",
+  topic: "Differentiation",
+  level: "A-Level",
+  year: "Year 2",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2021",
+  difficulty: 2,
+  qNum: "6",
+  generatorCode: `const a = randInt(2, 6); const b = randInt(1, 5) * randSign(); const n = randInt(2, 5);
+let inner = a + 'x'; if (b > 0) inner += ' + ' + b; else inner += ' - ' + Math.abs(b);
+return { parts: [{ label: '', text: 'Differentiate $$y = (' + inner + ')^{' + n + '}$$', marks: 3, answer: '$$\\\\frac{dy}{dx} = ' + (a * n) + '(' + inner + ')^{' + (n-1) + '}$$' }] };`
+}, {
+  id: "partial-frac-01",
+  title: "Partial Fractions",
+  topic: "Algebra",
+  level: "A-Level",
+  year: "Year 2",
+  source: "Edexcel",
+  paper: "Paper 1",
+  yearRef: "2022",
+  difficulty: 4,
+  qNum: "14",
+  generatorCode: `const a = randInt(1, 4); const b = randInt(1, 4);
+const A = randInt(1, 5); const B = randInt(1, 5) * randSign();
+const num1 = A + B; const num2 = A * b + B * a;
+let numStr = ''; if (num1 === 1) numStr = 'x'; else if (num1 === -1) numStr = '-x'; else numStr = num1 + 'x';
+if (num2 > 0) numStr += ' + ' + num2; else if (num2 < 0) numStr += ' - ' + Math.abs(num2);
+return { parts: [{ label: '', text: 'Express $$\\\\frac{' + numStr + '}{(x + ' + a + ')(x - ' + b + ')}$$ in partial fractions.', marks: 4, answer: '$$\\\\frac{' + A + '}{x + ' + a + '} + \\\\frac{' + B + '}{x - ' + b + '}$$' }] };`
+}];
+
+/* ═══════════ KATEX ═══════════ */
+const useKaTeX = () => {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    if (window.katex) {
+      setOk(true);
+      return;
+    }
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css";
+    document.head.appendChild(l);
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js";
+    s.onload = () => setOk(true);
+    document.head.appendChild(s);
+  }, []);
+  return ok;
+};
+const renderLatex = text => {
+  if (!window.katex || !text) return text || "";
+  try {
+    let r = text.replace(/\\n/g, '<br/>');
+    r = r.replace(/\$\$([\s\S]*?)\$\$/g, (_, t) => {
+      try {
+        return window.katex.renderToString(t.trim(), {
+          displayMode: true,
+          throwOnError: false
+        });
+      } catch {
+        return t;
+      }
+    });
+    r = r.replace(/\$([^\$]+?)\$/g, (_, t) => {
+      try {
+        return window.katex.renderToString(t.trim(), {
+          displayMode: false,
+          throwOnError: false
+        });
+      } catch {
+        return t;
+      }
+    });
+    return r;
+  } catch {
+    return text;
+  }
+};
+const executeGenerator = code => {
+  try {
+    const fn = new Function("randInt", "randChoice", "randSign", "randNonZero", "gcd", "simplifyFrac", "fracToLatex", "signedTerm", code);
+    const r = fn(randInt, randChoice, randSign, randNonZero, gcd, simplifyFrac, fracToLatex, signedTerm);
+    if (r.parts) return r;
+    return {
+      parts: [{
+        label: "",
+        text: r.question,
+        marks: r.marks,
+        answer: r.answer
+      }]
+    };
+  } catch (e) {
+    return {
+      parts: [{
+        label: "",
+        text: "Error: " + e.message,
+        marks: 0,
+        answer: ""
+      }]
+    };
+  }
+};
+
+/* ═══════════ CSS ═══════════ */
+const CSS = `@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--deep:#610064;--purple:#920088;--orange:#F93E26;--pink:#D30063;--bg0:#12071a;--bg1:#1c0e26;--bg2:#281438;--bg3:#3a1c4a;--bg4:#4d2560;--bdr:#4a2555;--bdr2:#6a3575;--t1:#FFF;--t2:#d0b8d4;--t3:#9070a0;--green:#34d399}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg0);color:var(--t1);font-family:'Source Sans 3',sans-serif;-webkit-font-smoothing:antialiased}
+.katex{color:var(--t1)!important}.katex-display{margin:.4em 0!important}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg0)}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+@media print{.no-print{display:none!important}body{background:#fff!important;color:#000!important}.katex{color:#000!important}@page{size:A4 landscape;margin:5mm}}`;
+
+/* ═══════════ SHARED COMPONENTS ═══════════ */
+const Latex = ({
+  children,
+  style
+}) => {
+  const h = useMemo(() => renderLatex(children || ""), [children]);
+  return /*#__PURE__*/React.createElement("span", {
+    style: style,
+    dangerouslySetInnerHTML: {
+      __html: h
+    }
+  });
+};
+const DiffDots = ({
+  d,
+  small
+}) => /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: "flex",
+    gap: 2,
+    alignItems: "center"
+  }
+}, [1, 2, 3, 4].map(i => /*#__PURE__*/React.createElement("div", {
+  key: i,
+  style: {
+    width: small ? 5 : 7,
+    height: small ? 5 : 7,
+    borderRadius: "50%",
+    background: i <= d ? DIFF_COLORS[d] : "var(--bg1)",
+    border: `1px solid ${i <= d ? DIFF_COLORS[d] : "var(--bdr)"}`
+  }
+})));
+const Chip = ({
+  label,
+  active,
+  onClick,
+  count,
+  color = "var(--deep)"
+}) => /*#__PURE__*/React.createElement("button", {
+  onClick: onClick,
+  style: {
+    background: active ? color : "var(--bg3)",
+    color: active ? "#fff" : "var(--t2)",
+    border: `1px solid ${active ? color : "var(--bdr)"}`,
+    borderRadius: 6,
+    padding: "3px 9px",
+    fontSize: "0.72rem",
+    fontWeight: active ? 600 : 400,
+    cursor: "pointer",
+    fontFamily: "'Source Sans 3'",
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    whiteSpace: "nowrap"
+  }
+}, label, count !== undefined && /*#__PURE__*/React.createElement("span", {
+  style: {
+    background: active ? "rgba(255,255,255,0.2)" : "var(--bg1)",
+    borderRadius: 4,
+    padding: "0 4px",
+    fontSize: "0.6rem"
+  }
+}, count));
+
+/* ═══════════ FILTER PANEL ═══════════ */
+const emptyFilters = () => ({
+  topic: new Set(),
+  level: new Set(),
+  year: new Set(),
+  source: new Set(),
+  difficulty: new Set(),
+  yearRef: new Set()
+});
+const applyFilters = (questions, filters) => questions.filter(q => {
+  if (filters.topic.size > 0 && !filters.topic.has(q.topic)) return false;
+  if (filters.level.size > 0 && !filters.level.has(q.level)) return false;
+  if (filters.year.size > 0 && !filters.year.has(q.year)) return false;
+  if (filters.source.size > 0 && !filters.source.has(q.source)) return false;
+  if (filters.difficulty.size > 0 && !filters.difficulty.has(q.difficulty)) return false;
+  if (filters.yearRef.size > 0 && !filters.yearRef.has(q.yearRef)) return false;
+  return true;
+});
+const FilterPanel = ({
+  questions,
+  filters,
+  setFilters,
+  collapsed,
+  setCollapsed
+}) => {
+  const toggle = (key, val) => setFilters(p => {
+    const n = new Set(p[key]);
+    n.has(val) ? n.delete(val) : n.add(val);
+    return {
+      ...p,
+      [key]: n
+    };
+  });
+  const uv = f => [...new Set(questions.map(q => q[f]).filter(Boolean))].sort();
+  const tc = useMemo(() => {
+    const m = {};
+    questions.forEach(q => {
+      m[q.topic] = (m[q.topic] || 0) + 1;
+    });
+    return m;
+  }, [questions]);
+  const ac = Object.values(filters).reduce((s, set) => s + set.size, 0);
+  if (collapsed) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "var(--bg1)",
+      borderBottom: "1px solid var(--bdr)",
+      padding: "4px 14px",
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCollapsed(false),
+    style: {
+      padding: "3px 9px",
+      background: "var(--bg3)",
+      color: "var(--t2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.72rem"
+    }
+  }, "Show Filters", ac > 0 ? ` (${ac})` : ""), ac > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFilters(emptyFilters()),
+    style: {
+      padding: "3px 9px",
+      background: "rgba(249,62,38,0.12)",
+      color: "var(--orange)",
+      border: "1px solid rgba(249,62,38,0.2)",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.68rem"
+    }
+  }, "Clear"));
+  const Row = ({
+    label,
+    children
+  }) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "0.6rem",
+      color: "var(--t3)",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      minWidth: 55
+    }
+  }, label), children);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "var(--bg1)",
+      borderBottom: "1px solid var(--bdr)",
+      padding: "6px 14px",
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      fontWeight: 700,
+      textTransform: "uppercase"
+    }
+  }, "Filters"), ac > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFilters(emptyFilters()),
+    style: {
+      padding: "1px 7px",
+      background: "rgba(249,62,38,0.12)",
+      color: "var(--orange)",
+      border: "1px solid rgba(249,62,38,0.2)",
+      borderRadius: 4,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.65rem"
+    }
+  }, "Clear (", ac, ")")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCollapsed(true),
+    style: {
+      padding: "1px 7px",
+      background: "var(--bg3)",
+      color: "var(--t3)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 4,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.65rem"
+    }
+  }, "Hide")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement(Row, {
+    label: "Content"
+  }, uv("year").map(y => /*#__PURE__*/React.createElement(Chip, {
+    key: y,
+    label: y,
+    active: filters.year.has(y),
+    onClick: () => toggle("year", y),
+    color: "var(--pink)"
+  }))), /*#__PURE__*/React.createElement(Row, {
+    label: "Level"
+  }, uv("level").map(l => /*#__PURE__*/React.createElement(Chip, {
+    key: l,
+    label: l,
+    active: filters.level.has(l),
+    onClick: () => toggle("level", l),
+    color: "var(--deep)"
+  }))), /*#__PURE__*/React.createElement(Row, {
+    label: "Topic"
+  }, Object.entries(tc).sort(([a], [b]) => a.localeCompare(b)).map(([t, c]) => /*#__PURE__*/React.createElement(Chip, {
+    key: t,
+    label: t,
+    active: filters.topic.has(t),
+    onClick: () => toggle("topic", t),
+    count: c,
+    color: "var(--purple)"
+  }))), /*#__PURE__*/React.createElement(Row, {
+    label: "Source"
+  }, uv("source").map(s => /*#__PURE__*/React.createElement(Chip, {
+    key: s,
+    label: s,
+    active: filters.source.has(s),
+    onClick: () => toggle("source", s)
+  }))), uv("yearRef").length > 0 && /*#__PURE__*/React.createElement(Row, {
+    label: "Paper Yr"
+  }, uv("yearRef").map(y => /*#__PURE__*/React.createElement(Chip, {
+    key: y,
+    label: y,
+    active: filters.yearRef.has(y),
+    onClick: () => toggle("yearRef", y)
+  }))), /*#__PURE__*/React.createElement(Row, {
+    label: "Difficulty"
+  }, [1, 2, 3, 4].map(d => /*#__PURE__*/React.createElement("button", {
+    key: d,
+    onClick: () => toggle("difficulty", d),
+    style: {
+      padding: "2px 8px",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontSize: "0.72rem",
+      fontFamily: "'Source Sans 3'",
+      border: `1px solid ${filters.difficulty.has(d) ? DIFF_COLORS[d] : "var(--bdr)"}`,
+      background: filters.difficulty.has(d) ? DIFF_COLORS[d] + "22" : "var(--bg3)",
+      color: filters.difficulty.has(d) ? DIFF_COLORS[d] : "var(--t2)",
+      fontWeight: filters.difficulty.has(d) ? 600 : 400,
+      display: "flex",
+      alignItems: "center",
+      gap: 3,
+      whiteSpace: "nowrap"
+    }
+  }, /*#__PURE__*/React.createElement(DiffDots, {
+    d: d,
+    small: true
+  }), " ", DIFF_LABELS[d])))));
+};
+
+/* ═══════════ QUESTION CARD ═══════════ */
+const zb = {
+  width: 20,
+  height: 20,
+  borderRadius: 4,
+  border: "1px solid var(--bdr)",
+  background: "var(--bg1)",
+  color: "var(--t3)",
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontFamily: "'Source Sans 3'",
+  padding: 0
+};
+const QuestionCard = ({
+  num,
+  data,
+  meta,
+  showAnswer,
+  layout,
+  fontSize,
+  onFontChange,
+  onDiffChange,
+  currentDiff
+}) => {
+  const base = layout === 1 ? 1.6 : layout === 2 ? 1.12 : 0.88;
+  const size = base * (fontSize / 100);
+  const pad = layout === 1 ? 32 : layout === 2 ? 22 : 16;
+  const tm = data.parts ? data.parts.reduce((s, p) => s + (p.marks || 0), 0) : 0;
+  const indent = layout === 1 ? 40 : layout === 2 ? 30 : 22;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "linear-gradient(160deg, var(--bg2), var(--bg3))",
+      borderRadius: 12,
+      padding: pad,
+      border: "1px solid var(--bdr)",
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      position: "relative",
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 3,
+      background: "linear-gradient(90deg, var(--deep), var(--pink), var(--orange))"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: pad * 0.45,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Serif Display'",
+      fontSize: layout <= 2 ? "1.6rem" : "1.1rem",
+      color: "var(--orange)"
+    }
+  }, "Q", num), /*#__PURE__*/React.createElement("div", {
+    className: "no-print",
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 2,
+      opacity: 0.7
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onFontChange(-10),
+    style: zb
+  }, "\u2212"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "0.58rem",
+      color: "var(--t3)",
+      minWidth: 24,
+      textAlign: "center"
+    }
+  }, fontSize, "%"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onFontChange(10),
+    style: zb
+  }, "+")), /*#__PURE__*/React.createElement("div", {
+    className: "no-print",
+    style: {
+      display: "flex",
+      gap: 2,
+      marginLeft: 4
+    }
+  }, [1, 2, 3, 4].map(d => /*#__PURE__*/React.createElement("button", {
+    key: d,
+    onClick: () => onDiffChange(d),
+    style: {
+      padding: "1px 6px",
+      borderRadius: 4,
+      fontSize: "0.6rem",
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      background: currentDiff === d ? DIFF_COLORS[d] + "33" : "transparent",
+      color: currentDiff === d ? DIFF_COLORS[d] : "var(--t3)",
+      border: currentDiff === d ? `1px solid ${DIFF_COLORS[d]}` : "1px solid transparent",
+      fontWeight: currentDiff === d ? 600 : 400
+    }
+  }, DIFF_LABELS[d])))), /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "rgba(249,62,38,0.12)",
+      border: "1px solid rgba(249,62,38,0.22)",
+      borderRadius: 6,
+      padding: layout <= 2 ? "3px 10px" : "2px 8px",
+      fontSize: layout <= 2 ? "0.8rem" : "0.68rem",
+      color: "var(--orange)",
+      fontWeight: 600
+    }
+  }, tm)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflow: "auto",
+      fontSize: `${size}rem`,
+      lineHeight: 1.8
+    }
+  }, data.intro && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: size * 12,
+      paddingBottom: size * 5,
+      borderBottom: "1px solid rgba(255,255,255,0.06)"
+    }
+  }, /*#__PURE__*/React.createElement(Latex, null, data.intro)), data.parts?.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      marginBottom: size * 12,
+      paddingLeft: p.label ? indent : 0,
+      position: "relative"
+    }
+  }, p.label && /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: "absolute",
+      left: 0,
+      fontWeight: 700,
+      fontSize: `${size}rem`
+    }
+  }, p.label), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Latex, null, p.text), p.marks > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: 8,
+      color: "var(--t3)",
+      fontWeight: 700,
+      fontSize: `${size * 0.65}rem`
+    }
+  }, "[", p.marks, "]")), showAnswer && p.answer && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      paddingTop: 6,
+      borderTop: "1px dashed var(--bdr2)",
+      color: "var(--green)",
+      fontSize: `${size * 0.82}rem`,
+      lineHeight: 1.7
+    }
+  }, /*#__PURE__*/React.createElement(Latex, null, p.answer))))), meta && /*#__PURE__*/React.createElement("div", {
+    className: "no-print",
+    style: {
+      flexShrink: 0,
+      paddingTop: 6,
+      borderTop: "1px solid rgba(255,255,255,0.04)",
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      fontSize: "0.62rem",
+      color: "var(--t3)",
+      marginTop: 4
+    }
+  }, meta.source && /*#__PURE__*/React.createElement("span", null, meta.source), meta.paper && /*#__PURE__*/React.createElement("span", null, "\xB7 ", meta.paper), meta.yearRef && /*#__PURE__*/React.createElement("span", null, "\xB7 ", meta.yearRef), meta.qNum && /*#__PURE__*/React.createElement("span", null, "\xB7 Q", meta.qNum), /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: "auto"
+    }
+  }, /*#__PURE__*/React.createElement(DiffDots, {
+    d: meta.difficulty || 1,
+    small: true
+  }))));
+};
+
+/* ═══════════ FULL PAGE PREVIEW ═══════════ */
+const PreviewModal = ({
+  q,
+  data,
+  onClose,
+  onRegen,
+  showAns,
+  setShowAns
+}) => /*#__PURE__*/React.createElement("div", {
+  style: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1000,
+    background: "var(--bg0)",
+    display: "flex",
+    flexDirection: "column"
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 20px",
+    borderBottom: "1px solid var(--bdr)",
+    flexShrink: 0,
+    background: "var(--bg1)"
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10
+  }
+}, /*#__PURE__*/React.createElement("span", {
+  style: {
+    fontFamily: "'DM Serif Display'",
+    fontSize: "1.1rem",
+    color: "var(--orange)"
+  }
+}, q.title), /*#__PURE__*/React.createElement("span", {
+  style: {
+    background: q.year === "Year 2" ? "rgba(211,0,99,0.15)" : "rgba(52,211,153,0.1)",
+    color: q.year === "Year 2" ? "var(--pink)" : "var(--green)",
+    padding: "2px 7px",
+    borderRadius: 4,
+    fontSize: "0.68rem",
+    fontWeight: 500
+  }
+}, q.year), /*#__PURE__*/React.createElement("span", {
+  style: {
+    color: "var(--t3)",
+    fontSize: "0.75rem"
+  }
+}, q.source, " ", q.paper, " ", q.yearRef, q.qNum ? ` Q${q.qNum}` : ""), /*#__PURE__*/React.createElement(DiffDots, {
+  d: q.difficulty
+})), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: "flex",
+    gap: 6
+  }
+}, /*#__PURE__*/React.createElement("button", {
+  onClick: () => setShowAns(p => !p),
+  style: {
+    padding: "5px 12px",
+    background: showAns ? "rgba(52,211,153,0.18)" : "var(--bg3)",
+    color: showAns ? "var(--green)" : "var(--t2)",
+    border: showAns ? "1px solid rgba(52,211,153,0.3)" : "1px solid var(--bdr)",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontFamily: "'Source Sans 3'",
+    fontSize: "0.78rem"
+  }
+}, showAns ? "Hide Answers" : "Show Answers"), /*#__PURE__*/React.createElement("button", {
+  onClick: onRegen,
+  style: {
+    padding: "5px 12px",
+    background: "var(--bg3)",
+    color: "var(--t2)",
+    border: "1px solid var(--bdr)",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontFamily: "'Source Sans 3'",
+    fontSize: "0.78rem"
+  }
+}, "Regenerate"), /*#__PURE__*/React.createElement("button", {
+  onClick: onClose,
+  style: {
+    padding: "5px 16px",
+    background: "var(--orange)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontWeight: 600,
+    fontFamily: "'Source Sans 3'",
+    fontSize: "0.78rem"
+  }
+}, "Close"))), /*#__PURE__*/React.createElement("div", {
+  style: {
+    flex: 1,
+    overflow: "auto",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 36
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    maxWidth: 780,
+    width: "100%",
+    fontSize: "1.35rem",
+    lineHeight: 2
+  }
+}, data.intro && /*#__PURE__*/React.createElement("div", {
+  style: {
+    marginBottom: 24,
+    paddingBottom: 14,
+    borderBottom: "1px solid var(--bdr)"
+  }
+}, /*#__PURE__*/React.createElement(Latex, null, data.intro)), data.parts?.map((p, i) => /*#__PURE__*/React.createElement("div", {
+  key: i,
+  style: {
+    marginBottom: 24,
+    paddingLeft: p.label ? 48 : 0,
+    position: "relative"
+  }
+}, p.label && /*#__PURE__*/React.createElement("span", {
+  style: {
+    position: "absolute",
+    left: 0,
+    fontWeight: 700,
+    fontSize: "1.35rem"
+  }
+}, p.label), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Latex, null, p.text), p.marks > 0 && /*#__PURE__*/React.createElement("span", {
+  style: {
+    marginLeft: 12,
+    color: "var(--t3)",
+    fontWeight: 700,
+    fontSize: "0.85rem"
+  }
+}, "[", p.marks, "]")), showAns && p.answer && /*#__PURE__*/React.createElement("div", {
+  style: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: "1px dashed var(--bdr2)",
+    color: "var(--green)",
+    fontSize: "1.1rem",
+    lineHeight: 1.8
+  }
+}, /*#__PURE__*/React.createElement(Latex, null, p.answer)))))));
+
+/* ═══════════ PRINT VIEW ═══════════ */
+const PrintView = ({
+  items,
+  count,
+  onClose,
+  onRegen,
+  printFontSize,
+  setPrintFontSize
+}) => {
+  const cols = count <= 8 ? 2 : 4;
+  const rows = Math.ceil(count / cols);
+  const fs = (count <= 8 ? 0.78 : 0.56) * (printFontSize / 100);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 1000,
+      background: "rgba(0,0,0,0.92)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      padding: 12,
+      overflow: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "no-print",
+    style: {
+      display: "flex",
+      gap: 6,
+      marginBottom: 10,
+      flexShrink: 0,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      padding: "6px 14px",
+      background: "var(--bg3)",
+      color: "var(--t2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, "Close"), /*#__PURE__*/React.createElement("button", {
+    onClick: onRegen,
+    style: {
+      padding: "6px 14px",
+      background: "var(--purple)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, "Regenerate"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      background: "var(--bg3)",
+      borderRadius: 6,
+      padding: "3px 8px",
+      border: "1px solid var(--bdr)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "0.7rem",
+      color: "var(--t3)"
+    }
+  }, "Size:"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPrintFontSize(p => Math.max(40, p - 10)),
+    style: {
+      ...zb,
+      width: 22,
+      height: 22
+    }
+  }, "\u2212"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "0.72rem",
+      color: "var(--t2)",
+      minWidth: 30,
+      textAlign: "center"
+    }
+  }, printFontSize, "%"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPrintFontSize(p => Math.min(150, p + 10)),
+    style: {
+      ...zb,
+      width: 22,
+      height: 22
+    }
+  }, "+")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.print(),
+    style: {
+      padding: "6px 18px",
+      background: "var(--orange)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontWeight: 600,
+      fontFamily: "'Source Sans 3'"
+    }
+  }, "Print")), /*#__PURE__*/React.createElement("div", {
+    id: "print-area",
+    style: {
+      width: "100%",
+      maxWidth: 1100,
+      aspectRatio: "297/210",
+      background: "#fff",
+      borderRadius: 6,
+      display: "grid",
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      gridTemplateRows: `repeat(${rows}, 1fr)`,
+      gap: 4,
+      padding: 6,
+      overflow: "hidden"
+    }
+  }, items.slice(0, count).map((g, i) => {
+    const tm = g.parts ? g.parts.reduce((s, p) => s + (p.marks || 0), 0) : 0;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        border: "1.5px solid #ccc",
+        borderRadius: 4,
+        padding: count <= 8 ? 8 : 4,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: 2
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'DM Serif Display'",
+        fontSize: `${fs * 1.15}rem`,
+        color: "#610064"
+      }
+    }, "Q", i + 1), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: `${fs * 0.85}rem`,
+        color: "#999"
+      }
+    }, "[", tm, "]")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: `${fs}rem`,
+        lineHeight: 1.4,
+        color: "#222",
+        flex: 1,
+        overflow: "hidden"
+      }
+    }, g.intro && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 2
+      }
+    }, /*#__PURE__*/React.createElement(Latex, {
+      style: {
+        color: "#222"
+      }
+    }, g.intro)), g.parts?.map((p, j) => /*#__PURE__*/React.createElement("div", {
+      key: j,
+      style: {
+        marginBottom: 2,
+        paddingLeft: p.label ? Math.max(12, fs * 18) : 0,
+        position: "relative"
+      }
+    }, p.label && /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: "absolute",
+        left: 0,
+        fontWeight: 700,
+        color: "#333",
+        fontSize: `${fs}rem`
+      }
+    }, p.label), /*#__PURE__*/React.createElement(Latex, {
+      style: {
+        color: "#222"
+      }
+    }, p.text), p.marks > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#aaa",
+        fontSize: `${fs * 0.75}rem`,
+        marginLeft: 3
+      }
+    }, "[", p.marks, "]")))));
+  })));
+};
+
+/* ═════════════════════════════════════
+   MAIN APP
+   ═════════════════════════════════════ */
+function App() {
+  const katex = useKaTeX();
+  const [questions, setQuestions] = useState(INITIAL_QUESTIONS);
+  const [view, setView] = useState("student");
+  const [adminAuth, setAdminAuth] = useState(false);
+  const [pw, setPw] = useState("");
+  const PASS = "mathsstarters2025";
+  const [studentTab, setStudentTab] = useState("display");
+  const [layout, setLayout] = useState(4);
+  const [showAns, setShowAns] = useState(false);
+  const [generated, setGenerated] = useState([]); // [{...generatedData, meta: {source,paper,...}}]
+  const [fontSizes, setFontSizes] = useState({});
+  const [slotDiffs, setSlotDiffs] = useState({}); // per-slot difficulty override
+
+  const [displayFilters, setDisplayFilters] = useState(emptyFilters());
+  const [displayFC, setDisplayFC] = useState(false);
+  const [browseFilters, setBrowseFilters] = useState(emptyFilters());
+  const [browseFC, setBrowseFC] = useState(false);
+  const [browseSel, setBrowseSel] = useState(new Set());
+  const [searchTxt, setSearchTxt] = useState("");
+  const [previewModal, setPreviewModal] = useState(null);
+  const [previewAns, setPreviewAns] = useState(false);
+  const [printPrev, setPrintPrev] = useState(null);
+  const [printItems, setPrintItems] = useState([]);
+  const [printFontSize, setPrintFontSize] = useState(80);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({
+    id: "",
+    title: "",
+    topic: "",
+    level: "AS",
+    year: "Year 1",
+    source: "",
+    paper: "",
+    yearRef: "",
+    difficulty: 1,
+    qNum: "",
+    generatorCode: ""
+  });
+  const [adminPreview, setAdminPreview] = useState(null);
+  const [importTxt, setImportTxt] = useState("");
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("alm-q-v6");
+        if (r?.value) {
+          const s = JSON.parse(r.value);
+          if (s.length > 0) setQuestions(s);
+        }
+      } catch {}
+    })();
+  }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        await window.storage.set("alm-q-v6", JSON.stringify(questions));
+      } catch {}
+    })();
+  }, [questions]);
+  const displayFiltered = useMemo(() => applyFilters(questions, displayFilters), [questions, displayFilters]);
+
+  // Generate questions into slots, respecting per-slot difficulty
+  const generateQuestions = useCallback((pool = null, count = null) => {
+    const n = count || layout;
+    let p = pool || (displayFiltered.length > 0 ? displayFiltered : questions);
+    if (p.length === 0) p = [...questions];
+    const res = [];
+    for (let i = 0; i < n; i++) {
+      // If slot has a difficulty override, filter pool further
+      const diff = slotDiffs[i];
+      let slotPool = diff ? p.filter(q => q.difficulty === diff) : p;
+      if (slotPool.length === 0) slotPool = [...p]; // fallback
+      const sp = [...slotPool];
+      const idx = Math.floor(Math.random() * sp.length);
+      const q = sp[idx];
+      const genData = executeGenerator(q.generatorCode);
+      res.push({
+        ...genData,
+        meta: {
+          source: q.source,
+          paper: q.paper,
+          yearRef: q.yearRef,
+          qNum: q.qNum,
+          difficulty: q.difficulty,
+          title: q.title,
+          id: q.id
+        }
+      });
+    }
+    setGenerated(res);
+    setFontSizes({});
+  }, [displayFiltered, questions, layout, slotDiffs]);
+  useEffect(() => {
+    if (katex && view === "student" && studentTab === "display") generateQuestions();
+  }, [katex, layout, view, studentTab]);
+
+  // Regenerate single slot
+  const regenSlot = idx => {
+    const diff = slotDiffs[idx];
+    let p = displayFiltered.length > 0 ? displayFiltered : questions;
+    let slotPool = diff ? p.filter(q => q.difficulty === diff) : p;
+    if (slotPool.length === 0) slotPool = [...p];
+    const q = slotPool[Math.floor(Math.random() * slotPool.length)];
+    const genData = executeGenerator(q.generatorCode);
+    setGenerated(prev => {
+      const n = [...prev];
+      n[idx] = {
+        ...genData,
+        meta: {
+          source: q.source,
+          paper: q.paper,
+          yearRef: q.yearRef,
+          qNum: q.qNum,
+          difficulty: q.difficulty,
+          title: q.title,
+          id: q.id
+        }
+      };
+      return n;
+    });
+  };
+  const changeFontSize = (i, d) => setFontSizes(p => ({
+    ...p,
+    [i]: Math.max(50, Math.min(200, (p[i] || 100) + d))
+  }));
+  const changeSlotDiff = (i, d) => {
+    setSlotDiffs(p => {
+      const current = p[i];
+      if (current === d) return {
+        ...p,
+        [i]: undefined
+      }; // toggle off
+      return {
+        ...p,
+        [i]: d
+      };
+    });
+    // Regenerate that slot immediately
+    setTimeout(() => regenSlot(i), 50);
+  };
+  const toggleBrowseSel = id => setBrowseSel(p => {
+    const n = new Set(p);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+
+  // FIXED: Generate from selection in Question Bank
+  const generateFromBrowse = () => {
+    if (browseSel.size === 0) return;
+    const pool = questions.filter(q => browseSel.has(q.id));
+    const n = Math.min(pool.length, layout);
+    const res = [];
+    const p2 = [...pool];
+    for (let i = 0; i < n; i++) {
+      const idx = Math.floor(Math.random() * p2.length);
+      const q = p2[idx];
+      if (p2.length > 1) p2.splice(idx, 1);
+      const genData = executeGenerator(q.generatorCode);
+      res.push({
+        ...genData,
+        meta: {
+          source: q.source,
+          paper: q.paper,
+          yearRef: q.yearRef,
+          qNum: q.qNum,
+          difficulty: q.difficulty,
+          title: q.title,
+          id: q.id
+        }
+      });
+    }
+    setGenerated(res);
+    setFontSizes({});
+    setSlotDiffs({});
+    setStudentTab("display"); // Switch to display tab
+  };
+  const genPrint = n => {
+    let p = displayFiltered.length > 0 ? displayFiltered : questions;
+    if (p.length === 0) p = [...questions];
+    const res = [];
+    const p2 = [...p];
+    for (let i = 0; i < n; i++) {
+      const idx = Math.floor(Math.random() * p2.length);
+      const q = p2[idx];
+      if (p2.length > 1) p2.splice(idx, 1);
+      res.push(executeGenerator(q.generatorCode));
+    }
+    setPrintItems(res);
+    setPrintPrev(n);
+  };
+  const openPreview = q => {
+    setPreviewModal({
+      q,
+      data: executeGenerator(q.generatorCode)
+    });
+    setPreviewAns(false);
+  };
+  const regenPreview = () => {
+    if (previewModal) setPreviewModal({
+      q: previewModal.q,
+      data: executeGenerator(previewModal.q.generatorCode)
+    });
+  };
+  const browseFiltered = useMemo(() => {
+    let r = applyFilters(questions, browseFilters);
+    if (searchTxt) {
+      const s = searchTxt.toLowerCase();
+      r = r.filter(q => q.title.toLowerCase().includes(s) || q.topic.toLowerCase().includes(s) || q.id.toLowerCase().includes(s));
+    }
+    return r;
+  }, [questions, browseFilters, searchTxt]);
+  const inputSt = {
+    width: "100%",
+    padding: "8px 11px",
+    background: "var(--bg2)",
+    border: "1px solid var(--bdr)",
+    borderRadius: 6,
+    color: "var(--t1)",
+    fontFamily: "'Source Sans 3'",
+    fontSize: "0.85rem",
+    outline: "none"
+  };
+  if (!katex) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "var(--bg0)",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "2rem",
+      fontFamily: "'DM Serif Display'",
+      color: "var(--orange)",
+      marginBottom: 10
+    }
+  }, "Loading Mathematics...")));
+  if (previewModal) return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(PreviewModal, {
+    q: previewModal.q,
+    data: previewModal.data,
+    onClose: () => setPreviewModal(null),
+    onRegen: regenPreview,
+    showAns: previewAns,
+    setShowAns: setPreviewAns
+  }));
+  if (printPrev) return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(PrintView, {
+    items: printItems,
+    count: printPrev,
+    onClose: () => setPrintPrev(null),
+    onRegen: () => genPrint(printPrev),
+    printFontSize: printFontSize,
+    setPrintFontSize: setPrintFontSize
+  }));
+
+  // Admin login
+  if (view === "admin" && !adminAuth) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "var(--bg0)",
+      fontFamily: "'Source Sans 3'",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "var(--bg2)",
+      borderRadius: 14,
+      padding: 32,
+      border: "1px solid var(--bdr)",
+      width: 360,
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Serif Display'",
+      fontSize: "1.5rem",
+      color: "var(--orange)",
+      marginBottom: 6
+    }
+  }, "Admin"), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: pw,
+    onChange: e => setPw(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter" && pw === PASS) {
+        setAdminAuth(true);
+        setPw("");
+      }
+    },
+    placeholder: "Password",
+    style: {
+      ...inputSt,
+      marginBottom: 10
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setView("student"),
+    style: {
+      flex: 1,
+      padding: 7,
+      background: "var(--bg3)",
+      color: "var(--t2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, "Back"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (pw === PASS) {
+        setAdminAuth(true);
+        setPw("");
+      }
+    },
+    style: {
+      flex: 1,
+      padding: 7,
+      background: "var(--orange)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontWeight: 600,
+      fontFamily: "'Source Sans 3'"
+    }
+  }, "Login"))));
+
+  // Admin
+  if (view === "admin" && adminAuth) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "var(--bg0)",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "var(--bg2)",
+      borderBottom: "1px solid var(--bdr)",
+      padding: "8px 16px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Serif Display'",
+      fontSize: "1.1rem",
+      color: "var(--orange)"
+    }
+  }, "Question Bank"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--t3)",
+      fontSize: "0.78rem"
+    }
+  }, questions.length, " questions")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const j = JSON.stringify(questions, null, 2);
+      const b = new Blob([j], {
+        type: "application/json"
+      });
+      const u = URL.createObjectURL(b);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = "maths-starters.json";
+      a.click();
+    },
+    style: {
+      padding: "4px 9px",
+      background: "var(--bg3)",
+      color: "var(--t2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.75rem"
+    }
+  }, "Export"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setView("student");
+      setAdminAuth(false);
+    },
+    style: {
+      padding: "4px 10px",
+      background: "var(--deep)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.75rem"
+    }
+  }, "Student View"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      height: "calc(100vh - 42px)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 290,
+      borderRight: "1px solid var(--bdr)",
+      overflow: "auto",
+      background: "var(--bg0)",
+      padding: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setEditId(null);
+      setForm({
+        id: "",
+        title: "",
+        topic: "",
+        level: "AS",
+        year: "Year 1",
+        source: "",
+        paper: "",
+        yearRef: "",
+        difficulty: 1,
+        qNum: "",
+        generatorCode: ""
+      });
+      setAdminPreview(null);
+    },
+    style: {
+      width: "100%",
+      padding: 6,
+      marginBottom: 5,
+      background: "var(--bg3)",
+      color: "var(--t2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.8rem"
+    }
+  }, "+ New"), questions.map(q => /*#__PURE__*/React.createElement("div", {
+    key: q.id,
+    onClick: () => {
+      setForm({
+        ...q
+      });
+      setEditId(q.id);
+      setAdminPreview(null);
+    },
+    style: {
+      padding: "7px 8px",
+      marginBottom: 2,
+      borderRadius: 5,
+      cursor: "pointer",
+      background: editId === q.id ? "var(--bg3)" : "transparent"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 500,
+      fontSize: "0.8rem"
+    }
+  }, q.title), /*#__PURE__*/React.createElement(DiffDots, {
+    d: q.difficulty,
+    small: true
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 3,
+      fontSize: "0.62rem",
+      color: "var(--t3)",
+      marginTop: 1
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "var(--bg2)",
+      padding: "0 3px",
+      borderRadius: 2
+    }
+  }, q.topic), /*#__PURE__*/React.createElement("span", null, q.year), q.yearRef && /*#__PURE__*/React.createElement("span", null, "\xB7 ", q.yearRef), q.qNum && /*#__PURE__*/React.createElement("span", null, "\xB7 Q", q.qNum)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      paddingTop: 6,
+      borderTop: "1px solid var(--bdr)"
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: importTxt,
+    onChange: e => setImportTxt(e.target.value),
+    placeholder: "Paste JSON to import...",
+    style: {
+      width: "100%",
+      height: 60,
+      padding: 5,
+      background: "var(--bg2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 5,
+      color: "var(--t1)",
+      fontFamily: "'JetBrains Mono'",
+      fontSize: "0.65rem",
+      resize: "vertical",
+      outline: "none"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      try {
+        const p = JSON.parse(importTxt);
+        const arr = Array.isArray(p) ? p : [p];
+        setQuestions(prev => {
+          const ids = new Set(prev.map(q => q.id));
+          return [...prev.map(q => {
+            const m = arr.find(i => i.id === q.id);
+            return m || q;
+          }), ...arr.filter(q => !ids.has(q.id))];
+        });
+        setImportTxt("");
+      } catch {
+        alert("Invalid JSON");
+      }
+    },
+    style: {
+      width: "100%",
+      marginTop: 2,
+      padding: 4,
+      background: "var(--purple)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.75rem"
+    }
+  }, "Import"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflow: "auto",
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 740
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "0.95rem",
+      fontWeight: 600,
+      marginBottom: 10
+    }
+  }, editId ? "Edit" : "New", " Question"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: 7,
+      marginBottom: 7
+    }
+  }, [["ID", "id"], ["Title", "title"], ["Topic", "topic"]].map(([l, k]) => /*#__PURE__*/React.createElement("div", {
+    key: k
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, l), /*#__PURE__*/React.createElement("input", {
+    value: form[k],
+    onChange: e => setForm(p => ({
+      ...p,
+      [k]: e.target.value
+    })),
+    style: inputSt
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Level"), /*#__PURE__*/React.createElement("select", {
+    value: form.level,
+    onChange: e => setForm(p => ({
+      ...p,
+      level: e.target.value
+    })),
+    style: inputSt
+  }, /*#__PURE__*/React.createElement("option", null, "AS"), /*#__PURE__*/React.createElement("option", null, "A-Level"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Year"), /*#__PURE__*/React.createElement("select", {
+    value: form.year,
+    onChange: e => setForm(p => ({
+      ...p,
+      year: e.target.value
+    })),
+    style: inputSt
+  }, /*#__PURE__*/React.createElement("option", null, "Year 1"), /*#__PURE__*/React.createElement("option", null, "Year 2"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Source"), /*#__PURE__*/React.createElement("input", {
+    value: form.source,
+    onChange: e => setForm(p => ({
+      ...p,
+      source: e.target.value
+    })),
+    style: inputSt
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Paper"), /*#__PURE__*/React.createElement("input", {
+    value: form.paper,
+    onChange: e => setForm(p => ({
+      ...p,
+      paper: e.target.value
+    })),
+    style: inputSt
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Paper Year"), /*#__PURE__*/React.createElement("input", {
+    value: form.yearRef,
+    onChange: e => setForm(p => ({
+      ...p,
+      yearRef: e.target.value
+    })),
+    style: inputSt
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Q Number"), /*#__PURE__*/React.createElement("input", {
+    value: form.qNum,
+    onChange: e => setForm(p => ({
+      ...p,
+      qNum: e.target.value
+    })),
+    placeholder: "e.g. 12",
+    style: inputSt
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 7
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Difficulty"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 4
+    }
+  }, [1, 2, 3, 4].map(d => /*#__PURE__*/React.createElement("button", {
+    key: d,
+    onClick: () => setForm(p => ({
+      ...p,
+      difficulty: d
+    })),
+    style: {
+      padding: "4px 8px",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontSize: "0.74rem",
+      border: form.difficulty === d ? `2px solid ${DIFF_COLORS[d]}` : "1px solid var(--bdr)",
+      background: form.difficulty === d ? DIFF_COLORS[d] + "22" : "var(--bg3)",
+      color: form.difficulty === d ? DIFF_COLORS[d] : "var(--t3)",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, DIFF_LABELS[d])))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 7
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: "0.65rem",
+      color: "var(--t3)",
+      marginBottom: 2
+    }
+  }, "Generator Code"), /*#__PURE__*/React.createElement("textarea", {
+    value: form.generatorCode,
+    onChange: e => setForm(p => ({
+      ...p,
+      generatorCode: e.target.value
+    })),
+    style: {
+      width: "100%",
+      minHeight: 180,
+      padding: 9,
+      background: "var(--bg2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 7,
+      color: "var(--t1)",
+      fontFamily: "'JetBrains Mono'",
+      fontSize: "0.74rem",
+      lineHeight: 1.5,
+      resize: "vertical",
+      outline: "none",
+      tabSize: 2
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 5,
+      marginBottom: 14,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAdminPreview(executeGenerator(form.generatorCode)),
+    style: {
+      padding: "6px 12px",
+      background: "var(--bg3)",
+      color: "var(--t2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 7,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.8rem"
+    }
+  }, "Preview"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (!form.id || !form.title || !form.generatorCode) return;
+      if (editId) setQuestions(p => p.map(q => q.id === editId ? {
+        ...form
+      } : q));else setQuestions(p => [...p, {
+        ...form
+      }]);
+      setEditId(null);
+      setForm({
+        id: "",
+        title: "",
+        topic: "",
+        level: "AS",
+        year: "Year 1",
+        source: "",
+        paper: "",
+        yearRef: "",
+        difficulty: 1,
+        qNum: "",
+        generatorCode: ""
+      });
+      setAdminPreview(null);
+    },
+    style: {
+      padding: "6px 16px",
+      background: "var(--orange)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 7,
+      cursor: "pointer",
+      fontWeight: 600,
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.8rem"
+    }
+  }, editId ? "Update" : "Add"), editId && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setQuestions(p => p.filter(q => q.id !== editId));
+      setEditId(null);
+      setForm({
+        id: "",
+        title: "",
+        topic: "",
+        level: "AS",
+        year: "Year 1",
+        source: "",
+        paper: "",
+        yearRef: "",
+        difficulty: 1,
+        qNum: "",
+        generatorCode: ""
+      });
+    },
+    style: {
+      padding: "6px 12px",
+      background: "rgba(249,62,38,0.1)",
+      color: "var(--orange)",
+      border: "1px solid rgba(249,62,38,0.25)",
+      borderRadius: 7,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.8rem"
+    }
+  }, "Delete"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setEditId(null);
+      setForm({
+        id: "",
+        title: "",
+        topic: "",
+        level: "AS",
+        year: "Year 1",
+        source: "",
+        paper: "",
+        yearRef: "",
+        difficulty: 1,
+        qNum: "",
+        generatorCode: ""
+      });
+      setAdminPreview(null);
+    },
+    style: {
+      padding: "6px 12px",
+      background: "var(--bg3)",
+      color: "var(--t3)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 7,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.8rem"
+    }
+  }, "Cancel"))), adminPreview && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "var(--bg2)",
+      borderRadius: 9,
+      padding: 16,
+      border: "1px solid var(--bdr)"
+    }
+  }, adminPreview.intro && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "0.92rem",
+      marginBottom: 10,
+      lineHeight: 1.7
+    }
+  }, /*#__PURE__*/React.createElement(Latex, null, adminPreview.intro)), adminPreview.parts?.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      marginBottom: 8,
+      paddingLeft: p.label ? 24 : 0,
+      position: "relative"
+    }
+  }, p.label && /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: "absolute",
+      left: 0,
+      fontWeight: 700
+    }
+  }, p.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "0.92rem",
+      lineHeight: 1.7
+    }
+  }, /*#__PURE__*/React.createElement(Latex, null, p.text), p.marks > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--t3)",
+      fontSize: "0.7rem",
+      marginLeft: 5
+    }
+  }, "[", p.marks, "]")), p.answer && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 3,
+      paddingTop: 3,
+      borderTop: "1px dashed var(--bdr2)",
+      color: "var(--green)",
+      fontSize: "0.82rem"
+    }
+  }, /*#__PURE__*/React.createElement(Latex, null, p.answer)))))))));
+
+  // ── STUDENT ──
+  const gridSt = layout === 1 ? {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: 12,
+    padding: 12,
+    height: "100%"
+  } : layout === 2 ? {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    padding: 12,
+    height: "100%"
+  } : {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gridTemplateRows: "1fr 1fr",
+    gap: 8,
+    padding: 8,
+    height: "100%"
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "no-print",
+    style: {
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      background: "var(--bg0)",
+      fontFamily: "'Source Sans 3'"
+    }
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "linear-gradient(90deg, var(--deep), #3a003d)",
+      borderBottom: "1px solid var(--bdr)",
+      padding: "6px 12px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexShrink: 0,
+      flexWrap: "wrap",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'DM Serif Display'",
+      fontSize: "1.15rem",
+      color: "#fff"
+    }
+  }, "A-Level Starters"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "var(--orange)",
+      color: "#fff",
+      fontSize: "0.5rem",
+      padding: "2px 5px",
+      borderRadius: 3,
+      fontWeight: 700
+    }
+  }, "MATHS"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      background: "rgba(0,0,0,0.35)",
+      borderRadius: 6,
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStudentTab("display"),
+    style: {
+      padding: "4px 12px",
+      background: studentTab === "display" ? "var(--orange)" : "transparent",
+      color: studentTab === "display" ? "#fff" : "var(--t2)",
+      border: "none",
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.76rem",
+      fontWeight: studentTab === "display" ? 700 : 400
+    }
+  }, "Display"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStudentTab("browse"),
+    style: {
+      padding: "4px 12px",
+      background: studentTab === "browse" ? "var(--orange)" : "transparent",
+      color: studentTab === "browse" ? "#fff" : "var(--t2)",
+      border: "none",
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.76rem",
+      fontWeight: studentTab === "browse" ? 700 : 400
+    }
+  }, "Question Bank")), studentTab === "display" && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      background: "rgba(0,0,0,0.35)",
+      borderRadius: 6,
+      overflow: "hidden"
+    }
+  }, [1, 2, 4].map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    onClick: () => setLayout(n),
+    style: {
+      padding: "4px 11px",
+      background: layout === n ? "var(--purple)" : "transparent",
+      color: layout === n ? "#fff" : "var(--t2)",
+      border: "none",
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.76rem",
+      fontWeight: layout === n ? 700 : 400
+    }
+  }, n, "Q")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      flexWrap: "wrap"
+    }
+  }, studentTab === "display" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAns(p => !p),
+    style: {
+      padding: "4px 10px",
+      background: showAns ? "rgba(52,211,153,0.18)" : "rgba(0,0,0,0.35)",
+      color: showAns ? "var(--green)" : "var(--t2)",
+      border: showAns ? "1px solid rgba(52,211,153,0.3)" : "1px solid transparent",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.74rem"
+    }
+  }, showAns ? "Hide Answers" : "Answers"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => genPrint(8),
+    style: {
+      padding: "4px 8px",
+      background: "rgba(0,0,0,0.35)",
+      color: "var(--t2)",
+      border: "none",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.72rem"
+    }
+  }, "Print 8"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => genPrint(16),
+    style: {
+      padding: "4px 8px",
+      background: "rgba(0,0,0,0.35)",
+      color: "var(--t2)",
+      border: "none",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.72rem"
+    }
+  }, "Print 16"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => generateQuestions(),
+    style: {
+      padding: "4px 14px",
+      background: "var(--orange)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontWeight: 700,
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.82rem"
+    }
+  }, "New Questions")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setView("admin"),
+    title: "Admin",
+    style: {
+      width: 26,
+      height: 26,
+      background: "rgba(0,0,0,0.35)",
+      color: "var(--t3)",
+      border: "none",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontSize: "0.85rem"
+    }
+  }, "\u2699"))), studentTab === "display" ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement(FilterPanel, {
+    questions: questions,
+    filters: displayFilters,
+    setFilters: setDisplayFilters,
+    collapsed: displayFC,
+    setCollapsed: setDisplayFC
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: gridSt
+  }, generated.slice(0, layout).map((g, i) => /*#__PURE__*/React.createElement(QuestionCard, {
+    key: i,
+    num: i + 1,
+    data: g,
+    meta: g.meta,
+    showAnswer: showAns,
+    layout: layout,
+    fontSize: fontSizes[i] || 100,
+    onFontChange: d => changeFontSize(i, d),
+    currentDiff: slotDiffs[i] || 0,
+    onDiffChange: d => changeSlotDiff(i, d)
+  }))))) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement(FilterPanel, {
+    questions: questions,
+    filters: browseFilters,
+    setFilters: setBrowseFilters,
+    collapsed: browseFC,
+    setCollapsed: setBrowseFC
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "5px 14px",
+      background: "var(--bg0)",
+      borderBottom: "1px solid var(--bdr)",
+      display: "flex",
+      gap: 6,
+      alignItems: "center",
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: searchTxt,
+    onChange: e => setSearchTxt(e.target.value),
+    placeholder: "Search...",
+    style: {
+      flex: 1,
+      maxWidth: 260,
+      padding: "5px 9px",
+      background: "var(--bg2)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 5,
+      color: "var(--t1)",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.8rem",
+      outline: "none"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "0.7rem",
+      color: "var(--t3)"
+    }
+  }, browseFiltered.length, "/", questions.length), browseSel.size > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: generateFromBrowse,
+    style: {
+      padding: "4px 12px",
+      background: "var(--orange)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontWeight: 600,
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.78rem"
+    }
+  }, "Generate ", Math.min(browseSel.size, layout), " Selected \u2192"), browseSel.size > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setBrowseSel(new Set()),
+    style: {
+      padding: "4px 8px",
+      background: "var(--bg3)",
+      color: "var(--t3)",
+      border: "1px solid var(--bdr)",
+      borderRadius: 5,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.7rem"
+    }
+  }, "Clear")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflow: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    style: {
+      width: "100%",
+      borderCollapse: "collapse",
+      fontSize: "0.8rem"
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: {
+      borderBottom: "1px solid var(--bdr)",
+      position: "sticky",
+      top: 0,
+      background: "var(--bg1)",
+      zIndex: 2
+    }
+  }, ["", "Title", "Topic", "Level", "Year", "Source", "Paper", "Yr", "Q#", "Diff", ""].map((h, i) => /*#__PURE__*/React.createElement("th", {
+    key: i,
+    style: {
+      padding: "6px 6px",
+      textAlign: "left",
+      fontSize: "0.63rem",
+      color: "var(--t3)",
+      fontWeight: 600,
+      textTransform: "uppercase",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, browseFiltered.map(q => {
+    const sel = browseSel.has(q.id);
+    return /*#__PURE__*/React.createElement("tr", {
+      key: q.id,
+      style: {
+        borderBottom: "1px solid var(--bdr)",
+        background: sel ? "rgba(146,0,136,0.1)" : "transparent"
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        width: 28
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => toggleBrowseSel(q.id),
+      style: {
+        width: 16,
+        height: 16,
+        borderRadius: 3,
+        border: sel ? "2px solid var(--orange)" : "2px solid var(--bdr2)",
+        background: sel ? "var(--orange)" : "transparent",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }
+    }, sel && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#fff",
+        fontSize: "0.6rem",
+        fontWeight: 700
+      }
+    }, "\u2713"))), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        fontWeight: 500
+      }
+    }, q.title), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: "var(--bg3)",
+        padding: "1px 5px",
+        borderRadius: 3,
+        fontSize: "0.7rem",
+        color: "var(--t2)"
+      }
+    }, q.topic)), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        fontSize: "0.74rem",
+        color: q.level === "A-Level" ? "var(--orange)" : "var(--t2)"
+      }
+    }, q.level), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: q.year === "Year 2" ? "rgba(211,0,99,0.15)" : "rgba(52,211,153,0.1)",
+        color: q.year === "Year 2" ? "var(--pink)" : "var(--green)",
+        padding: "1px 5px",
+        borderRadius: 3,
+        fontSize: "0.7rem",
+        fontWeight: 500
+      }
+    }, q.year)), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        fontSize: "0.74rem",
+        color: "var(--t2)"
+      }
+    }, q.source), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        fontSize: "0.74rem",
+        color: "var(--t3)"
+      }
+    }, q.paper), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        fontSize: "0.74rem",
+        color: "var(--t2)"
+      }
+    }, q.yearRef || "—"), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px",
+        fontSize: "0.74rem",
+        color: "var(--t2)"
+      }
+    }, q.qNum || "—"), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px"
+      }
+    }, /*#__PURE__*/React.createElement(DiffDots, {
+      d: q.difficulty,
+      small: true
+    })), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "5px 6px"
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => openPreview(q),
+      style: {
+        padding: "2px 8px",
+        background: "var(--bg3)",
+        color: "var(--t2)",
+        border: "1px solid var(--bdr)",
+        borderRadius: 4,
+        cursor: "pointer",
+        fontFamily: "'Source Sans 3'",
+        fontSize: "0.68rem"
+      }
+    }, "Preview")));
+  }))))));
+}
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(React.createElement(App));
+}
+startApp();
+</script>
+</body>
+</html>
