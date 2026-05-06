@@ -71,10 +71,10 @@ const signedTerm = (coeff, v = "", first = false) => {
   return `${sp}${sign} ${abs}${v}`;
 };
 const DIFF_LABELS = {
-  1: "AS",
-  2: "A2",
-  3: "Exam",
-  4: "Challenge"
+  1: "1",
+  2: "2",
+  3: "3",
+  4: "4"
 };
 const DIFF_COLORS = {
   1: "#34d399",
@@ -1317,20 +1317,28 @@ function App() {
   }, [questions]);
   const displayFiltered = useMemo(() => applyFilters(questions, displayFilters), [questions, displayFilters]);
 
+  // Track whether we just set generated state externally (so auto-regen useEffect skips it)
+  const skipAutoGen = useRef(false);
+
   // Generate questions into slots, respecting per-slot difficulty
+  // Uses ONLY the filtered pool — does NOT fall back to all questions when filters yield 0 results.
   const generateQuestions = useCallback((pool = null, count = null) => {
     const n = count || layout;
-    let p = pool || (displayFiltered.length > 0 ? displayFiltered : questions);
-    if (p.length === 0) p = [...questions];
+    // If a pool is explicitly provided (e.g., from "Generate from Selected"), use it.
+    // Otherwise, use the filtered set strictly. If the filtered set is empty, generate nothing.
+    const basePool = pool || displayFiltered;
+    if (!basePool || basePool.length === 0) {
+      setGenerated([]);
+      setFontSizes({});
+      return;
+    }
     const res = [];
     for (let i = 0; i < n; i++) {
-      // If slot has a difficulty override, filter pool further
       const diff = slotDiffs[i];
-      let slotPool = diff ? p.filter(q => q.difficulty === diff) : p;
-      if (slotPool.length === 0) slotPool = [...p]; // fallback
-      const sp = [...slotPool];
-      const idx = Math.floor(Math.random() * sp.length);
-      const q = sp[idx];
+      let slotPool = diff ? basePool.filter(q => q.difficulty === diff) : basePool;
+      if (slotPool.length === 0) slotPool = basePool; // per-slot diff fallback only
+      const idx = Math.floor(Math.random() * slotPool.length);
+      const q = slotPool[idx];
       const genData = executeGenerator(q.generatorCode);
       res.push({
         ...genData,
@@ -1347,17 +1355,21 @@ function App() {
     }
     setGenerated(res);
     setFontSizes({});
-  }, [displayFiltered, questions, layout, slotDiffs]);
+  }, [displayFiltered, layout, slotDiffs]);
   useEffect(() => {
+    if (skipAutoGen.current) {
+      skipAutoGen.current = false;
+      return;
+    }
     if (katex && view === "student" && studentTab === "display") generateQuestions();
   }, [katex, layout, view, studentTab]);
 
-  // Regenerate single slot
+  // Regenerate single slot — uses display filtered pool strictly
   const regenSlot = idx => {
     const diff = slotDiffs[idx];
-    let p = displayFiltered.length > 0 ? displayFiltered : questions;
-    let slotPool = diff ? p.filter(q => q.difficulty === diff) : p;
-    if (slotPool.length === 0) slotPool = [...p];
+    if (!displayFiltered || displayFiltered.length === 0) return;
+    let slotPool = diff ? displayFiltered.filter(q => q.difficulty === diff) : displayFiltered;
+    if (slotPool.length === 0) slotPool = displayFiltered;
     const q = slotPool[Math.floor(Math.random() * slotPool.length)];
     const genData = executeGenerator(q.generatorCode);
     setGenerated(prev => {
@@ -1402,7 +1414,7 @@ function App() {
     return n;
   });
 
-  // FIXED: Generate from selection in Question Bank
+  // Generate from selection in Question Bank — keeps the selected questions on the Display tab
   const generateFromBrowse = () => {
     if (browseSel.size === 0) return;
     const pool = questions.filter(q => browseSel.has(q.id));
@@ -1427,14 +1439,19 @@ function App() {
         }
       });
     }
+    // Mark the auto-regen useEffect to skip the next run, since we're setting generated manually
+    skipAutoGen.current = true;
     setGenerated(res);
     setFontSizes({});
     setSlotDiffs({});
-    setStudentTab("display"); // Switch to display tab
+    setStudentTab("display");
   };
   const genPrint = n => {
-    let p = displayFiltered.length > 0 ? displayFiltered : questions;
-    if (p.length === 0) p = [...questions];
+    const p = displayFiltered;
+    if (!p || p.length === 0) {
+      alert("No questions match the current filters. Clear or adjust filters first.");
+      return;
+    }
     const res = [];
     const p2 = [...p];
     for (let i = 0; i < n; i++) {
@@ -2355,7 +2372,40 @@ function App() {
       flex: 1,
       overflow: "hidden"
     }
+  }, generated.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column",
+      gap: 14,
+      color: "var(--t3)"
+    }
   }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'DM Serif Display'",
+      fontSize: "1.5rem",
+      color: "var(--orange)"
+    }
+  }, "No matching questions"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "0.9rem"
+    }
+  }, "Adjust or clear your filters to see questions."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDisplayFilters(emptyFilters()),
+    style: {
+      padding: "7px 18px",
+      background: "var(--orange)",
+      color: "#fff",
+      border: "none",
+      borderRadius: 7,
+      cursor: "pointer",
+      fontFamily: "'Source Sans 3'",
+      fontSize: "0.85rem",
+      fontWeight: 600
+    }
+  }, "Clear All Filters")) : /*#__PURE__*/React.createElement("div", {
     style: gridSt
   }, generated.slice(0, layout).map((g, i) => /*#__PURE__*/React.createElement(QuestionCard, {
     key: i,
