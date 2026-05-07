@@ -744,7 +744,8 @@ const QuestionCard = ({
   fontSize,
   onFontChange,
   onDiffChange,
-  currentDiff
+  currentDiff,
+  onRegen
 }) => {
   const base = layout === 1 ? 1.6 : layout === 2 ? 1.12 : 0.88;
   const size = base * (fontSize / 100);
@@ -813,7 +814,19 @@ const QuestionCard = ({
   }, fontSize, "%"), /*#__PURE__*/React.createElement("button", {
     onClick: () => onFontChange(10),
     style: zb
-  }, "+")), /*#__PURE__*/React.createElement("div", {
+  }, "+")), onRegen && /*#__PURE__*/React.createElement("button", {
+    className: "no-print",
+    onClick: onRegen,
+    title: "New numbers for this question",
+    style: {
+      ...zb,
+      marginLeft: 2,
+      fontSize: "0.85rem",
+      color: "var(--orange)",
+      borderColor: "rgba(249,62,38,0.35)",
+      background: "rgba(249,62,38,0.08)"
+    }
+  }, "\u21BB"), /*#__PURE__*/React.createElement("div", {
     className: "no-print",
     style: {
       display: "flex",
@@ -1408,23 +1421,43 @@ function App() {
     // Regenerate that slot immediately
     setTimeout(() => regenSlot(i), 50);
   };
+
+  // Regenerate the SAME question in slot idx with new random values
+  const regenSameSlot = idx => {
+    const cur = generated[idx];
+    if (!cur || !cur.meta || !cur.meta.id) return;
+    const q = questions.find(qq => qq.id === cur.meta.id);
+    if (!q) return;
+    const genData = executeGenerator(q.generatorCode);
+    setGenerated(prev => {
+      const next = [...prev];
+      next[idx] = {
+        ...genData,
+        meta: cur.meta
+      };
+      return next;
+    });
+  };
   const toggleBrowseSel = id => setBrowseSel(p => {
     const n = new Set(p);
     n.has(id) ? n.delete(id) : n.add(id);
     return n;
   });
 
-  // Generate from selection in Question Bank — keeps the selected questions on the Display tab
+  // Generate from selection in Question Bank — fills ALL display slots even when fewer questions selected.
+  // Strategy: shuffle the selected pool, then cycle through it modularly to fill `layout` slots.
+  // 1 selected + 4Q layout → all four slots show that one question (each with fresh random values).
+  // 2 selected + 4Q layout → alternating pattern (e.g. A, B, A, B).
+  // 4+ selected + 4Q layout → no duplicates.
   const generateFromBrowse = () => {
     if (browseSel.size === 0) return;
     const pool = questions.filter(q => browseSel.has(q.id));
-    const n = Math.min(pool.length, layout);
+    // Shuffle so the order is random
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const n = layout;
     const res = [];
-    const p2 = [...pool];
     for (let i = 0; i < n; i++) {
-      const idx = Math.floor(Math.random() * p2.length);
-      const q = p2[idx];
-      if (p2.length > 1) p2.splice(idx, 1);
+      const q = shuffled[i % shuffled.length];
       const genData = executeGenerator(q.generatorCode);
       res.push({
         ...genData,
@@ -2417,7 +2450,8 @@ function App() {
     fontSize: fontSizes[i] || 100,
     onFontChange: d => changeFontSize(i, d),
     currentDiff: slotDiffs[i] || 0,
-    onDiffChange: d => changeSlotDiff(i, d)
+    onDiffChange: d => changeSlotDiff(i, d),
+    onRegen: () => regenSameSlot(i)
   }))))) : /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
@@ -2475,7 +2509,7 @@ function App() {
       fontFamily: "'Source Sans 3'",
       fontSize: "0.78rem"
     }
-  }, "Generate ", Math.min(browseSel.size, layout), " Selected \u2192"), browseSel.size > 0 && /*#__PURE__*/React.createElement("button", {
+  }, "Generate Selected (", browseSel.size, ") \u2192 Fill ", layout, " Slot", layout !== 1 ? "s" : ""), browseSel.size > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setBrowseSel(new Set()),
     style: {
       padding: "4px 8px",
